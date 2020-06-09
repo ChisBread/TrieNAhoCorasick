@@ -11,11 +11,24 @@ namespace chis {
 	struct Trie_decoder_UTF8 {
 		inline static std::pair<const char*, size_t> next(const char* begin, const char* end);
 	};
-	template<class _charTy, class _valTy>
+	struct Trie_decoder_ONESTEP {
+		inline static std::pair<const wchar_t*, size_t> next(const wchar_t* begin, const wchar_t* end) {
+			if (begin < end) {
+				size_t offset = 1;
+				if (begin + offset <= end) {
+					return { begin + offset, offset };
+				} else {
+					return { end, offset };
+				}
+			}
+			return { begin, 0 };
+		};
+	};
+	template<class _wordTy, class _valTy>
 	struct _trie_node {
 		_trie_node() {}
 		_trie_node(STATUS status) :m_status(status) {}
-		std::map<_charTy, _trie_node*> m_succTo;//匹配跳转
+		std::map<_wordTy, _trie_node*> m_succTo;//匹配跳转
 		STATUS m_status;
 		_valTy m_val;
 		_trie_node *m_failTo = nullptr;//失配跳转
@@ -28,21 +41,21 @@ namespace chis {
 		_keyItor end;
 	};
 
-	template<class _valTy = std::string, class Trie_decoder = Trie_decoder_GBK>
+	template<class _keyTy = std::string, class _valTy = std::string, class Trie_decoder = Trie_decoder_GBK>
 	class lctrie {
-		using _charTy = std::string;
-		using _keyItor = const char*;
+		using _keyItor = typename _keyTy::const_pointer;// const char* ||  const wchar_t*
+		using _wordTy = _keyTy;
 	public:
 		lctrie() {
 			m_allNode.emplace_back(ROOT);
 			m_root = &m_allNode.back();
 		};
-		std::vector<_match_res<_valTy, _keyItor>> match(const std::string &str, bool fullMatch = false, bool longest = true) const {
+		std::vector<_match_res<_valTy, _keyItor>> match(const _keyTy &str, bool fullMatch = false, bool longest = true) const {
 			std::vector<_match_res<_valTy, _keyItor>> ret;
 			auto node = m_root;
-			const char *begin = str.c_str(), *end = str.c_str() + str.size();
+			_keyItor begin = str.c_str(), end = str.c_str() + str.size();
 			auto next = Trie_decoder::next(begin, end);
-			auto nextchr = std::string(begin, next.first);
+			auto nextchr = _wordTy(begin, next.first);
 			while (begin != end || node != m_root) {
 				do {
 					if (node->m_succTo.count(nextchr)) {//可行跳转
@@ -53,7 +66,7 @@ namespace chis {
 					}
 					begin = next.first;
 					next = Trie_decoder::next(begin, end);
-					nextchr = std::string(begin, next.first);
+					nextchr = _wordTy(begin, next.first);
 				} while (node->m_status != LEAF && (begin != end || node != m_root));
 				if (node->m_status == LEAF) {
 					auto mbegin = begin - node->depth;
@@ -72,13 +85,13 @@ namespace chis {
 			}
 			return ret;
 		}
-		lctrie& insert(const std::string &str, const _valTy &val) {
+		lctrie& insert(const _keyTy &str, const _valTy &val) {
 			acIsBuild = false;
 			auto node = m_root;
-			const char *begin = str.c_str(), *end = str.c_str() + str.size();
+			_keyItor begin = str.c_str(), end = str.c_str() + str.size();
 			while (begin != end) {
 				auto next = Trie_decoder::next(begin, end);
-				auto nextchr = std::string(begin, next.first);
+				auto nextchr = _wordTy(begin, next.first);
 				begin = next.first;
 				if (!node->m_succTo.count(nextchr)) { //没有这个分支，增加节点
 					m_allNode.emplace_back(INTER);
@@ -98,7 +111,7 @@ namespace chis {
 				return *this;
 			}
 			acIsBuild = true;
-			std::queue<_trie_node<_charTy, _valTy>*> quNode;
+			std::queue<_trie_node<_wordTy, _valTy>*> quNode;
 			for (auto succNext : m_root->m_succTo) {
 				auto next = succNext.second;
 				auto nextchr = succNext.first;
@@ -134,9 +147,10 @@ namespace chis {
 		}
 	private:
 		bool acIsBuild = false;
-		std::list<_trie_node<_charTy, _valTy>> m_allNode;
-		_trie_node<_charTy, _valTy> *m_root;
+		std::list<_trie_node<_wordTy, _valTy>> m_allNode;
+		_trie_node<_wordTy, _valTy> *m_root;
 	};
+	
 	std::pair<const char*, size_t> Trie_decoder_GBK::next(const char* begin, const char* end) {
 		if (begin < end) {
 			unsigned char uc = (unsigned char)*begin;
