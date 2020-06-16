@@ -1,5 +1,7 @@
 #include "ChisTrie.h"
 #include <iostream>
+#include <vector>
+#include <string>
 using namespace std;
 void wchar_test() {
     chis::lctrie<wstring, wstring, chis::Trie_decoder_ONESTEP> trie;
@@ -46,6 +48,59 @@ void wchar_test() {
         << input.substr(r.end-input.c_str()) << endl;
     }
 }
+
+void vector_test() {
+    chis::lctrie<vector<string>, string, chis::Trie_decoder_ONESTEP> trie;
+    {//一波初始化
+        vector<pair<vector<string>, string>> words = {
+            {{"李"}, "姓"}, 
+            {{"李","刚"}, "爸爸"}, 
+            {{"李","天", "一"}, "儿子"},
+            {{"刚"}, "爸爸的名字"},
+            {{"天","一"}, "儿子的名字"}, 
+            {{"刚","仔"}, "爸爸的昵称1"}, 
+            {{"刚","刚"}, "爸爸的昵称2"}, 
+            {{"仔"}, "儿子的昵称1"}, 
+            {{"仔","仔"}, "儿子的昵称2"},
+            {{"天","一","的","爸"}, "李刚"},
+            {{"我"}, "就是我，是颜色不一样的烟火"},
+            {{"的","爸"}, "的哥的爸爸"},
+            };
+        for(auto w:words) {
+            trie.insert(w.first, w.second);
+        }
+        trie.build_aho_corasick();//构建ac自动机
+    }
+    vector<string> input = {"我","李","天","一","的","爸","是","李","刚","刚","仔","仔"};
+    auto res = trie.match(input);//默认返回左优先的贪心匹配
+    auto tostring = [](const vector<string> &v) {
+        string ret;
+        for(auto &s:v) {
+            ret += s;
+        }
+        return ret;
+    };
+    for(auto r:res) {
+        cout << tostring(vector<string>((const string*)input.data(), r.begin))
+        << "[" << tostring(vector<string>(r.begin,r.end)) << "(" << r.val << ")] "
+        << tostring(vector<string>(r.end, (const string*)(input.data()+input.size()))) << endl;
+    }
+    cout << "//////////////+Full Match//////////////" << endl;
+    res = trie.match(input, true);//返回所有结果
+    for(auto r:res) {
+        cout << tostring(vector<string>((const string*)input.data(), r.begin))
+        << "[" << tostring(vector<string>(r.begin,r.end)) << "(" << r.val << ")] "
+        << tostring(vector<string>(r.end, (const string*)(input.data()+input.size()))) << endl;
+    }
+    cout << "//////////////-Longest Match//////////////" << endl;
+    res = trie.match(input, false, false);//非贪心匹配
+    for(auto r:res) {
+        cout << tostring(vector<string>((const string*)input.data(), r.begin))
+        << "[" << tostring(vector<string>(r.begin,r.end)) << "(" << r.val << ")] "
+        << tostring(vector<string>(r.end, (const string*)(input.data()+input.size()))) << endl;
+    }
+}
+
 void norm_test() {
     chis::lctrie<string, string, chis::Trie_decoder_UTF8> trie;
     {//一波初始化
@@ -94,5 +149,7 @@ int main() {
     norm_test();
     cout << "///////////////// wstring ////////////////" << endl;
     wchar_test();
+    cout << "///////////////// vector ////////////////" << endl;
+    vector_test();
     return 0;
 }
