@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <list>
+#include <forward_list>
 #include <queue>
 #include <string>
 namespace chis {
@@ -11,8 +12,10 @@ namespace chis {
 	struct Trie_decoder_UTF8 {
 		inline static std::pair<const char*, size_t> next(const char* begin, const char* end);
 	};
+	
 	struct Trie_decoder_ONESTEP {
-		inline static std::pair<const wchar_t*, size_t> next(const wchar_t* begin, const wchar_t* end) {
+		template<class _keyItor>
+		inline static std::pair<_keyItor, size_t> next(_keyItor begin, _keyItor end) {
 			if (begin < end) {
 				size_t offset = 1;
 				if (begin + offset <= end) {
@@ -47,13 +50,13 @@ namespace chis {
 		using _wordTy = _keyTy;
 	public:
 		lctrie() {
-			m_allNode.emplace_back(ROOT);
-			m_root = &m_allNode.back();
+			m_allNode.emplace_front(ROOT);
+			m_root = &m_allNode.front();
 		};
 		std::vector<_match_res<_valTy, _keyItor>> match(const _keyTy &str, bool fullMatch = false, bool longest = true) const {
 			std::vector<_match_res<_valTy, _keyItor>> ret;
 			auto node = m_root;
-			_keyItor begin = str.c_str(), end = str.c_str() + str.size();
+			_keyItor begin = str.data(), end = str.data() + str.size();
 			auto next = Trie_decoder::next(begin, end);
 			auto nextchr = _wordTy(begin, next.first);
 			while (begin != end || node != m_root) {
@@ -88,15 +91,15 @@ namespace chis {
 		lctrie& insert(const _keyTy &str, const _valTy &val) {
 			acIsBuild = false;
 			auto node = m_root;
-			_keyItor begin = str.c_str(), end = str.c_str() + str.size();
+			_keyItor begin = str.data(), end = str.data() + str.size();
 			while (begin != end) {
 				auto next = Trie_decoder::next(begin, end);
 				auto nextchr = _wordTy(begin, next.first);
 				begin = next.first;
 				if (!node->m_succTo.count(nextchr)) { //没有这个分支，增加节点
-					m_allNode.emplace_back(INTER);
-					auto &back = m_allNode.back();
-					back.depth = begin-str.c_str();
+					m_allNode.emplace_front(INTER);
+					auto &back = m_allNode.front();
+					back.depth = begin-str.data();
 					node->m_succTo[nextchr] = &back;
 				}
 				node = node->m_succTo[nextchr];
@@ -147,7 +150,7 @@ namespace chis {
 		}
 	private:
 		bool acIsBuild = false;
-		std::list<_trie_node<_wordTy, _valTy>> m_allNode;
+		std::forward_list<_trie_node<_wordTy, _valTy>> m_allNode;
 		_trie_node<_wordTy, _valTy> *m_root;
 	};
 	
